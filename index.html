@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gym Flapper: ¡Regalo de Cumpleaños!</title>
+    <title>Gym Flapper: ¡Regalo de Cumpleaños al nivel 5!</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,7 +30,7 @@
 
     <div id="title-container" class="text-center mb-4">
         <h1 class="font-pixel text-3xl md:text-5xl text-yellow-400 drop-shadow-lg">Gym Flapper</h1>
-        <p class="mt-2 text-lg">¡Un regalo de cumpleaños para mi pareja!</p>
+        <p class="mt-2 text-lg">¡Un regalo de cumpleaños para vos mi amor!</p>
     </div>
 
     <div id="game-container" class="relative w-full max-w-lg mx-auto">
@@ -46,7 +46,7 @@
             <h2 class="font-pixel text-4xl text-red-500">¡GAME OVER!</h2>
             <p class="mt-4 text-xl">Tu puntuación final:</p>
             <p id="finalScore" class="font-pixel text-5xl text-yellow-400 my-4">0</p>
-            <p class="mb-2 text-lg">¡Feliz Cumpleaños! Eres increíble.</p>
+            <p class="mb-2 text-lg">¡Feliz Cumpleaños! El regalo te espera.</p>
             <button id="restartButton" class="font-pixel bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-200">
                 Reintentar
             </button>
@@ -222,7 +222,7 @@
             gameState = 'gameOver';
             cancelAnimationFrame(animationId);
             finalScoreElement.textContent = score;
-            if (level >= 5) {
+            if (level >= 3) {
                 surpriseButton.classList.remove('hidden');
             }
             gameOverScreen.classList.remove('hidden');
