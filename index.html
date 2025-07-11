@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gym Flapper: ¡Regalo de Cumpleaños!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Roboto:wght@700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            touch-action: manipulation; /* Evita el zoom al tocar en móviles */
+        }
+        .font-pixel {
+            font-family: 'Press Start 2P', cursive;
+        }
+        canvas {
+            background-image: linear-gradient(to top, #718096, #a0aec0);
+            display: block;
+            margin: 0 auto;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-gray-800 text-white flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div id="title-container" class="text-center mb-4">
+        <h1 class="font-pixel text-3xl md:text-5xl text-yellow-400 drop-shadow-lg">Gym Flapper</h1>
+        <p class="mt-2 text-lg">¡Un regalo de cumpleaños para mi pareja!</p>
+    </div>
+
+    <div id="game-container" class="relative w-full max-w-lg mx-auto">
+        <canvas id="gameCanvas"></canvas>
+        <div id="startScreen" class="absolute inset-0 bg-black bg-opacity-60 flex flex-col items-center justify-center text-center p-4 rounded-lg pointer-events-none">
+            <h2 class="font-pixel text-2xl text-yellow-400">¡Prepárate!</h2>
+            <p class="mt-4 mb-6">Ayuda al pajarito a esquivar las barras de proteína. <br>¡Toca la pantalla o pulsa Espacio para empezar!</p>
+            <button id="startButton" class="font-pixel bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-200 pointer-events-auto">
+                Empezar
+            </button>
+        </div>
+        <div id="gameOverScreen" class="hidden absolute inset-0 bg-black bg-opacity-70 flex-col items-center justify-center text-center p-4 rounded-lg">
+            <h2 class="font-pixel text-4xl text-red-500">¡GAME OVER!</h2>
+            <p class="mt-4 text-xl">Tu puntuación final:</p>
+            <p id="finalScore" class="font-pixel text-5xl text-yellow-400 my-4">0</p>
+            <p class="mb-2 text-lg">¡Feliz Cumpleaños! Eres increíble.</p>
+            <button id="restartButton" class="font-pixel bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-200">
+                Reintentar
+            </button>
+            <button id="surpriseButton" class="hidden mt-4 font-pixel bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-200">
+                Reclamar Sorpresa
+            </button>
+        </div>
+    </div>
+
+    <div class="mt-4 text-center flex justify-center space-x-8">
+        <p class="font-pixel text-xl">REPS: <span id="score" class="text-yellow-400">0</span></p>
+        <p class="font-pixel text-xl">NIVEL: <span id="level" class="text-cyan-400">1</span></p>
+    </div>
+
+    <script>
+        // --- CONFIGURACIÓN DEL JUEGO ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const levelElement = document.getElementById('level');
+        const finalScoreElement = document.getElementById('finalScore');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const startButton = document.getElementById('startButton');
+        const restartButton = document.getElementById('restartButton');
+        const surpriseButton = document.getElementById('surpriseButton');
+        const gameContainer = document.getElementById('game-container');
+
+        // --- VARIABLES DEL JUEGO ---
+        let player, obstacles, score, gameSpeed, gravity, flapStrength, level, obstacleFrequency;
+        let gameState = 'start';
+        let frame = 0;
+        let animationId = null;
+
+        const PLAYER_SIZE = { width: 40, height: 30 };
+        const OBSTACLE_WIDTH = 70;
+        const OBSTACLE_GAP = 160;
+
+        // --- FUNCIONES DE DIBUJO ---
+        function drawPlayer() {
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            // Gotas de sudor
+            ctx.fillStyle = '#60a5fa';
+            ctx.beginPath(); ctx.arc(10, -5, 2, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(15, -8, 3, 0, Math.PI * 2); ctx.fill();
+            // Cuerpo del pájaro
+            ctx.fillStyle = '#facc15';
+            ctx.beginPath(); ctx.arc(20, 15, 15, 0, Math.PI * 2); ctx.fill();
+            // Ojo
+            ctx.fillStyle = 'black';
+            ctx.beginPath(); ctx.arc(28, 12, 3, 0, Math.PI * 2); ctx.fill();
+            // Pico
+            ctx.fillStyle = '#f97316';
+            ctx.beginPath(); ctx.moveTo(35, 15); ctx.lineTo(45, 18); ctx.lineTo(35, 21); ctx.closePath(); ctx.fill();
+            // Mancuerna
+            ctx.fillStyle = '#9ca3af';
+            ctx.fillRect(0, 12, 8, 8); ctx.fillRect(8, 15, 15, 2); ctx.fillRect(23, 12, 8, 8);
+            ctx.restore();
+        }
+
+        function drawObstacles() {
+            obstacles.forEach(obstacle => {
+                ctx.fillStyle = '#2563eb';
+                ctx.fillRect(obstacle.x, 0, OBSTACLE_WIDTH, obstacle.topHeight);
+                ctx.fillRect(obstacle.x, canvas.height - obstacle.bottomHeight, OBSTACLE_WIDTH, obstacle.bottomHeight);
+                ctx.fillStyle = 'white';
+                ctx.font = "12px 'Press Start 2P'";
+                ctx.textAlign = 'center';
+                ctx.fillText('PRO', obstacle.x + OBSTACLE_WIDTH / 2, obstacle.topHeight - 15);
+                ctx.fillText('PRO', obstacle.x + OBSTACLE_WIDTH / 2, canvas.height - obstacle.bottomHeight + 25);
+            });
+        }
+        
+        // --- LÓGICA DEL JUEGO ---
+        function updatePlayer() {
+            player.velocity += gravity;
+            player.y += player.velocity;
+            if (player.y + PLAYER_SIZE.height > canvas.height || player.y < 0) {
+                setGameOver();
+            }
+        }
+
+        function flap() {
+            player.velocity = -flapStrength;
+        }
+        
+        function updateObstacles() {
+            if (frame % obstacleFrequency === 0) {
+                const topHeight = Math.random() * (canvas.height - OBSTACLE_GAP - 100) + 50;
+                obstacles.push({
+                    x: canvas.width,
+                    topHeight: topHeight,
+                    bottomHeight: canvas.height - topHeight - OBSTACLE_GAP,
+                    passed: false
+                });
+            }
+            obstacles.forEach(obstacle => { obstacle.x -= gameSpeed; });
+            obstacles = obstacles.filter(obstacle => obstacle.x + OBSTACLE_WIDTH > 0);
+        }
+
+        function checkCollisions() {
+            const playerBounds = { x: player.x, y: player.y, width: PLAYER_SIZE.width, height: PLAYER_SIZE.height };
+            for (let obstacle of obstacles) {
+                const topObstacleBounds = { x: obstacle.x, y: 0, width: OBSTACLE_WIDTH, height: obstacle.topHeight };
+                const bottomObstacleBounds = { x: obstacle.x, y: canvas.height - obstacle.bottomHeight, width: OBSTACLE_WIDTH, height: obstacle.bottomHeight };
+                if (isColliding(playerBounds, topObstacleBounds) || isColliding(playerBounds, bottomObstacleBounds)) {
+                    setGameOver();
+                    return;
+                }
+            }
+        }
+
+        function isColliding(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y;
+        }
+
+        function updateScoreAndLevel() {
+            obstacles.forEach(obstacle => {
+                if (!obstacle.passed && obstacle.x + OBSTACLE_WIDTH < player.x) {
+                    score++;
+                    obstacle.passed = true;
+                    scoreElement.textContent = score;
+                    if (score > 0 && score % 10 === 0) {
+                        level++;
+                        levelElement.textContent = level;
+                        gameSpeed += 0.3; // Dificultad ajustada
+                        if (obstacleFrequency > 60) obstacleFrequency -= 4; // Dificultad ajustada
+                    }
+                }
+            });
+        }
+
+        function gameLoop() {
+            updatePlayer();
+            updateObstacles();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawPlayer();
+            drawObstacles();
+            checkCollisions();
+            updateScoreAndLevel();
+            frame++;
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function init() {
+            player = { x: 60, y: canvas.height / 2, velocity: 0 };
+            obstacles = [];
+            score = 0; level = 1; frame = 0;
+            gameSpeed = 3; gravity = 0.35; flapStrength = 7;
+            obstacleFrequency = 100;
+            scoreElement.textContent = '0';
+            levelElement.textContent = '1';
+            finalScoreElement.textContent = '0';
+            surpriseButton.classList.add('hidden');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawPlayer();
+        }
+
+        function startGame() {
+            if (gameState === 'playing') return;
+            if (animationId) cancelAnimationFrame(animationId);
+            init();
+            gameState = 'playing';
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            gameLoop();
+        }
+
+        function setGameOver() {
+            if (gameState === 'gameOver') return;
+            gameState = 'gameOver';
+            cancelAnimationFrame(animationId);
+            finalScoreElement.textContent = score;
+            if (level >= 5) {
+                surpriseButton.classList.remove('hidden');
+            }
+            gameOverScreen.classList.remove('hidden');
+        }
+
+        function handleUserAction() {
+            if (gameState === 'start') startGame();
+            else if (gameState === 'playing') flap();
+        }
+        
+        function resizeCanvas() {
+            const containerWidth = gameContainer.clientWidth;
+            canvas.width = containerWidth;
+            canvas.height = Math.min(containerWidth * 0.75, window.innerHeight * 0.6);
+            if (gameState !== 'playing') {
+                init();
+            }
+        }
+
+        // --- MANEJADORES DE EVENTOS ---
+        startButton.addEventListener('click', (e) => { e.stopPropagation(); startGame(); });
+        restartButton.addEventListener('click', (e) => { e.stopPropagation(); startGame(); });
+        surpriseButton.addEventListener('click', () => {
+            // Puedes cambiar este enlace por el que quieras para la sorpresa.
+            window.location.href = 'https://www.google.com/search?q=ideas+de+regalos+de+cumpleaños';
+        });
+        
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                if (gameState === 'gameOver') startGame();
+                else handleUserAction();
+            }
+        });
+        
+        canvas.addEventListener('mousedown', handleUserAction);
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleUserAction(); });
+        window.addEventListener('resize', resizeCanvas);
+
+        // Iniciar todo
+        resizeCanvas();
+    </script>
+
+</body>
+</html>
